@@ -2,6 +2,8 @@
 
 Multilingual, voice-enabled community notice board. An admin posts an English notice → **Sarvam AI** translates it into a resident's language → **Sarvam AI** text-to-speech turns it into audio → the board shows the text and plays the voice.
 
+Many residents can't read English notices, or can't read at all. Vani-Board makes every announcement readable and listenable in the resident's own language.
+
 ```
 Browser (public/)  →  server.js (keeps API key private)  →  Sarvam /translate  →  Sarvam /text-to-speech
 ```
@@ -56,19 +58,9 @@ Languages: Hindi, Telugu, Tamil, Kannada, Malayalam, Marathi, Bengali, Gujarati,
 2. In Exotel, build a call flow: **Passthru** (pointing at `https://YOUR-TUNNEL/api/voice`) followed by a **Greeting** applet that plays the dynamic greeting.
 3. The route must reply with JSON `{"greeting_url": "<wav url>"}` and generate the audio at 8 kHz, because Exotel only plays 8 kHz mono 16-bit WAV files.
 
-## 3-minute demo script
+## Roadmap
 
-1. **Problem (30s):** "Our apartment notices are in English on a wall. Many residents can't read them, or read a different language."
-2. **Post (30s):** Click *Use sample notice*, pick **Telugu**, press *Broadcast*.
-3. **Wow moment (60s):** The translated text appears and the voice starts automatically. Replay it. Switch to **Hindi**, then **Tamil**, and broadcast again.
-4. **Why it matters (30s):** "It reads for people who can't read, and speaks for people who can't read the language."
-5. **Roadmap (30s):** The same audio goes to WhatsApp voice notes, phone calls and IoT loudspeakers in the lobby. Next: a scheduler, notice history and per-resident language preferences.
-
-## Demo-day checklist
-
-- Test with your real key on the venue Wi-Fi beforehand and keep a phone hotspot ready.
-- Pre-run one notice and keep that tab open, so you can replay its audio if the network fails.
-- Turn the volume up and click the page once before presenting, because browsers can block autoplay.
-- Never commit `.env`. It is already listed in `.gitignore`.
-
-
+- Send the same audio as WhatsApp voice notes
+- accessable in keypad phones
+- Schedule notices and keep a notice history
+- Remember each resident's preferred language
