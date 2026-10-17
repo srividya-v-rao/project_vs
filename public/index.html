@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Vani-Board · Every notice, in every voice</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:wght@600;800&family=Inter:wght@400;500;600&family=Noto+Sans+Devanagari:wght@500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="top">
+    <div class="brand">
+      <span class="logo" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></span>
+      <div>
+        <h1>Vani-Board</h1>
+        <p>वाणी · Every notice, in every voice</p>
+      </div>
+    </div>
+    <span id="mode" class="pill">checking…</span>
+  </header>
+
+  <main class="grid">
+    <!-- Step 3 + 4: notice input and language selection -->
+    <section class="card" aria-labelledby="admin-h">
+      <h2 id="admin-h"><span class="step">1</span> Admin · Post a notice</h2>
+      <label for="notice">Announcement (English)</label>
+      <textarea id="notice" rows="7" maxlength="900" placeholder="Type or paste the community notice…"></textarea>
+      <div class="row between">
+        <button class="ghost" id="sample" type="button">Use sample notice</button>
+        <span class="count"><span id="cnt">0</span>/900</span>
+      </div>
+
+      <label for="lang">Resident language</label>
+      <div class="chips" id="chips" role="radiogroup" aria-label="Language"></div>
+
+      <button class="primary" id="go" type="button">
+        <span class="spin" hidden></span>
+        <span id="goTxt">Broadcast to Vani-Board</span>
+      </button>
+      <p id="err" class="err" role="alert" hidden></p>
+    </section>
+
+    <!-- Step 5 + 6 + 7: translated notice and audio -->
+    <section class="board" aria-labelledby="board-h" aria-live="polite">
+      <div class="board-head">
+        <h2 id="board-h">📢 Community Board</h2>
+        <span id="langTag" class="pill dark"></span>
+      </div>
+      <div id="empty" class="empty">
+        <div class="wave big" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+        <p>Posted notices appear here, in your language, with a voice to read them out.</p>
+      </div>
+      <article id="out" hidden>
+        <p class="orig-label">Original</p>
+        <p id="orig" class="orig"></p>
+        <hr>
+        <p class="orig-label" id="trLabel">Translated</p>
+        <p id="trans" class="trans"></p>
+        <div class="player">
+          <button id="play" class="play" type="button" aria-label="Play announcement">▶</button>
+          <div class="wave" id="wave" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+          <span id="pstate">Ready</span>
+        </div>
+      </article>
+    </section>
+  </main>
+
+  <footer>
+    <span>Next: WhatsApp voice notes · IoT community loudspeakers</span>
+    <span>Powered by Sarvam AI</span>
+  </footer>
+
+  <script src="app.js"></script>
+</body>
+</html>
