@@ -26,12 +26,6 @@ Translation (`/translate`, model `mayura:v1`) and speech (`/text-to-speech`, mod
 | `public/app.js` | 4–7 | Flow: translate → TTS → play |
 | `public/style.css` | 8 | Look and feel |
 
-## 3-minute demo script
 
-1. **Problem (30s):** "Our apartment notices are in English on a wall. Many residents can't read them, or read a different language."
-2. **Post (30s):** Click *Use sample notice*, pick **Telugu**, hit *Broadcast*.
-3. **Wow moment (60s):** Translated text appears and the voice starts automatically. Replay it. Switch to **Hindi**, then **Tamil**, and broadcast again.
-4. **Why it matters (30s):** "Reads for people who can't read. Speaks for people who can't read the language."
-5. **Roadmap (30s):** Same audio goes to WhatsApp voice notes and IoT loudspeakers in the lobby. Then: a scheduler, notice history, and per-resident language preferences.
 
 
