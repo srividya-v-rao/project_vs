@@ -34,9 +34,4 @@ Translation (`/translate`, model `mayura:v1`) and speech (`/text-to-speech`, mod
 4. **Why it matters (30s):** "Reads for people who can't read. Speaks for people who can't read the language."
 5. **Roadmap (30s):** Same audio goes to WhatsApp voice notes and IoT loudspeakers in the lobby. Then: a scheduler, notice history, and per-resident language preferences.
 
-## Demo-day checklist
 
-- Test with your real key on the venue Wi-Fi beforehand; keep a phone hotspot ready.
-- Pre-run one notice and keep that tab open, so you can replay its audio if the network fails.
-- Turn the volume up and click the page once before presenting (browsers can block autoplay).
-- Never commit `.env`.
