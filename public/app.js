@@ -20,28 +20,63 @@ const SAMPLE =
 
 const $ = (id) => document.getElementById(id);
 let live = false;
-let lang = LANGS[0];
+let user = null;        // logged-in user: { id, name, email, language }
+let lang = LANGS[0];    // language chosen for the next broadcast
 let audio = null;       // the one audio element that is playing right now
 let playingUrl = null;  // audio URL that is playing (board or history)
-let current = null;     // notice shown on the board: { id, language, original, translated, audio, createdAt }
-let history = [];       // saved notices, newest first
+let current = null;     // notice shown on the board
+let history = [];       // saved notices of this user, newest first
+const chipEls = {};
 
-// ---------- Language selection ----------
-LANGS.forEach((l, i) => {
+const json = { 'Content-Type': 'application/json' };
+
+async function api(url, options) {
+  const r = await fetch(url, options);
+  const j = await r.json().catch(() => ({}));
+  if (r.status === 401 && user && !url.startsWith('/api/login') && !url.startsWith('/api/signup')) {
+    showAuth('Your session has ended. Please log in again.');
+  }
+  if (!r.ok) throw new Error(j.error || 'Request failed');
+  return j;
+}
+
+// ---------- Language chips and the user's default language ----------
+LANGS.forEach((l) => {
   const b = document.createElement('button');
   b.type = 'button';
-  b.className = 'chip' + (i === 0 ? ' on' : '');
+  b.className = 'chip';
   b.setAttribute('role', 'radio');
-  b.setAttribute('aria-checked', i === 0);
   b.innerHTML = `${l.name}<small>${l.en}</small>`;
-  b.onclick = () => {
-    lang = l;
-    [...$('chips').children].forEach((c) => { c.classList.remove('on'); c.setAttribute('aria-checked', false); });
-    b.classList.add('on');
-    b.setAttribute('aria-checked', true);
-  };
+  b.onclick = () => selectLang(l.code);
+  chipEls[l.code] = b;
   $('chips').appendChild(b);
 });
+
+function selectLang(code) {
+  lang = BY_CODE[code] || LANGS[0];
+  Object.entries(chipEls).forEach(([c, b]) => {
+    b.classList.toggle('on', c === lang.code);
+    b.setAttribute('aria-checked', c === lang.code);
+  });
+  updateDefaultUI();
+}
+
+function updateDefaultUI() {
+  Object.entries(chipEls).forEach(([c, b]) => b.classList.toggle('def', !!user && user.language === c));
+  if (!user) return;
+  $('defInfo').textContent = `★ Your default language: ${BY_CODE[user.language].en}`;
+  $('setDef').hidden = lang.code === user.language;
+  $('setDef').textContent = `Make ${lang.en} my default`;
+}
+
+$('setDef').onclick = async () => {
+  showError('');
+  try {
+    const r = await api('/api/me', { method: 'PUT', headers: json, body: JSON.stringify({ language: lang.code }) });
+    user = r.user;
+    updateDefaultUI();
+  } catch (e) { showError(e.message); }
+};
 
 // ---------- Notice input ----------
 $('notice').addEventListener('input', () => ($('cnt').textContent = $('notice').value.length));
@@ -56,15 +91,8 @@ fetch('/api/status').then((r) => r.json()).then((s) => {
 function showError(msg) { $('err').textContent = msg; $('err').hidden = !msg; }
 function busy(on) {
   $('go').disabled = on;
-  document.querySelector('.spin').hidden = !on;
+  $('go').querySelector('.spin').hidden = !on;
   $('goTxt').textContent = on ? 'Translating & generating voice…' : 'Broadcast to Vani-Board';
-}
-
-async function api(url, options) {
-  const r = await fetch(url, options);
-  const j = await r.json().catch(() => ({}));
-  if (!r.ok) throw new Error(j.error || 'Request failed');
-  return j;
 }
 
 // ---------- Broadcast: server translates, speaks and saves to history ----------
@@ -76,11 +104,7 @@ $('go').onclick = async () => {
   busy(true);
   try {
     if (!live) throw new Error('Sarvam API key missing. Add SARVAM_API_KEY to the .env file and restart the server.');
-    const entry = await api('/api/notices', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ text, target: lang.code }),
-    });
+    const entry = await api('/api/notices', { method: 'POST', headers: json, body: JSON.stringify({ text, target: lang.code }) });
     history.unshift(entry);
     renderHistory();
     showOnBoard(entry);
@@ -104,6 +128,13 @@ function showOnBoard(entry) {
   $('langTag').textContent = l.name;
   $('langTag').hidden = false;
   refreshPlayers();
+}
+
+function clearBoard() {
+  current = null;
+  $('empty').hidden = false;
+  $('out').hidden = true;
+  $('langTag').hidden = true;
 }
 
 // ---------- Audio playback (one player at a time, shared by board and history) ----------
@@ -164,7 +195,7 @@ function renderHistory() {
     const li = el('li', 'h-item');
 
     const meta = el('div', 'h-meta');
-    meta.append(el('span', 'h-lang', l.name), el('time', 'h-time', fmtTime(n.createdAt)));
+    meta.append(el('span', 'h-lang', l.en), el('time', 'h-time', fmtTime(n.createdAt)));
 
     const trans = el('p', 'h-trans', n.translated);
     trans.lang = n.language;
@@ -199,4 +230,100 @@ function renderHistory() {
   refreshPlayers();
 }
 
-api('/api/notices').then((list) => { history = list; renderHistory(); }).catch(() => renderHistory());
+// ---------- Login / Sign up ----------
+let authMode = 'login';
+
+LANGS.forEach((l) => {
+  const o = document.createElement('option');
+  o.value = l.code;
+  o.textContent = `${l.en} (${l.name})`;
+  $('alang').appendChild(o);
+});
+
+function setAuthMode(mode) {
+  authMode = mode;
+  const signup = mode === 'signup';
+  $('tabLogin').classList.toggle('on', !signup);
+  $('tabSignup').classList.toggle('on', signup);
+  $('tabLogin').setAttribute('aria-selected', !signup);
+  $('tabSignup').setAttribute('aria-selected', signup);
+  $('nameRow').hidden = !signup;
+  $('langRow').hidden = !signup;
+  $('authTxt').textContent = signup ? 'Create account' : 'Log in';
+  $('apass').autocomplete = signup ? 'new-password' : 'current-password';
+  authError('');
+}
+$('tabLogin').onclick = () => setAuthMode('login');
+$('tabSignup').onclick = () => setAuthMode('signup');
+
+function authError(msg) { $('autherr').textContent = msg; $('autherr').hidden = !msg; }
+
+$('authForm').onsubmit = async (e) => {
+  e.preventDefault();
+  authError('');
+  const signup = authMode === 'signup';
+  const body = { email: $('aemail').value.trim(), password: $('apass').value };
+  if (signup) {
+    body.name = $('aname').value.trim();
+    body.language = $('alang').value;
+    if (!body.name) return authError('Please enter your name.');
+  }
+  if (!/^\S+@\S+\.\S+$/.test(body.email)) return authError('Please enter a valid email address.');
+  if (!body.password) return authError('Please enter your password.');
+  if (signup && body.password.length < 8) return authError('Password must be at least 8 characters.');
+
+  $('authBtn').disabled = true;
+  $('authBtn').querySelector('.spin').hidden = false;
+  try {
+    const r = await api(signup ? '/api/signup' : '/api/login', { method: 'POST', headers: json, body: JSON.stringify(body) });
+    user = r.user;
+    $('apass').value = '';
+    enterApp();
+  } catch (err) {
+    authError(err.message);
+  } finally {
+    $('authBtn').disabled = false;
+    $('authBtn').querySelector('.spin').hidden = true;
+  }
+};
+
+$('logout').onclick = async () => {
+  try { await api('/api/logout', { method: 'POST' }); } catch (_) {}
+  showAuth();
+};
+
+function enterApp() {
+  $('auth').hidden = true;
+  $('app').hidden = false;
+  $('userbox').hidden = false;
+  $('uname').textContent = user.name;
+  stop();
+  clearBoard();
+  showError('');
+  $('notice').value = '';
+  $('cnt').textContent = '0';
+  selectLang(user.language); // the user's saved default language
+  history = [];
+  renderHistory();
+  api('/api/notices').then((list) => { history = list; renderHistory(); }).catch(() => {});
+}
+
+function showAuth(message) {
+  stop();
+  user = null;
+  history = [];
+  clearBoard();
+  updateDefaultUI();
+  $('app').hidden = true;
+  $('userbox').hidden = true;
+  $('auth').hidden = false;
+  $('apass').value = '';
+  setAuthMode('login');
+  if (message) authError(message);
+}
+
+// ---------- Start: are we already logged in? ----------
+fetch('/api/me')
+  .then((r) => r.json())
+  .then((j) => { if (j.user) { user = j.user; enterApp(); } else showAuth(); })
+  .catch(() => showAuth());

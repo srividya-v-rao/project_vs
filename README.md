@@ -23,13 +23,19 @@ Open `.env` and paste your key after `SARVAM_API_KEY=` (no quotes, no spaces). T
 node server.js
 ```
 
-Open http://localhost:3000, tap **Use sample notice**, pick a language and press **Broadcast to Vani-Board**. The translated text appears and the voice plays automatically.
+Open http://localhost:3000 and **Sign up** with your name, email, a password (8+ characters) and your preferred language. Then tap **Use sample notice**, pick a language and press **Broadcast to Vani-Board**. The translated text appears and the voice plays automatically.
 
 If the page says "Sarvam API key missing", check that `.env` is in the project folder, has your key, and that you restarted the server after editing it.
 
+## Accounts and preferred language
+
+Residents sign up and log in with an email and password. Passwords are stored only as salted scrypt hashes, and sessions use an HttpOnly cookie. Your **preferred language** is chosen at sign-up and is pre-selected every time you log in (marked with a ★). To change it, pick another language and press **Make … my default**.
+
 ## History
 
-Every broadcast notice is saved with its original text, its translation and its voice. The **History** section under the board lists them newest first. Each one can be played again, shown on the board, or deleted. History is kept in the `data/` folder (`history.json` plus one `.wav` per notice), so it survives restarts. The latest 100 notices are kept, and `data/` is not uploaded to GitHub.
+Every broadcast notice is saved with its original text, its translation and its voice. The **History** section under the board lists your notices newest first. Each one can be played again, shown on the board, or deleted. Each user only sees their own history, and the latest 50 notices per user are kept.
+
+Accounts and history are stored in the `data/` folder (`users.json`, `sessions.json`, `history.json` and one `.wav` per notice), so they survive restarts. `data/` is not uploaded to GitHub. When hosting, set the `DATA_DIR` environment variable to a persistent disk, because many hosts erase files on every deploy.
 
 ## Which Sarvam models are used
 
@@ -46,9 +52,9 @@ Languages: Hindi, Telugu, Tamil, Kannada, Malayalam, Marathi, Bengali, Gujarati,
 
 | File | Role |
 |---|---|
-| `server.js` | Serves the page, calls Sarvam for translation and voice (the key never reaches the browser), and stores the history |
-| `public/index.html` | Page, notice box, language chips, history section |
-| `public/app.js` | Flow: translate → text-to-speech → play, plus the history list |
+| `server.js` | Serves the page, handles sign-up/login, calls Sarvam for translation and voice (the key never reaches the browser), and stores accounts and history |
+| `public/index.html` | Login/sign-up screen, notice box, language chips, history section |
+| `public/app.js` | Login/sign-up, default language, translate → text-to-speech → play, and the history list |
 | `public/style.css` | Look and feel |
 | `env.example` | Template for your `.env` file |
 

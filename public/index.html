@@ -17,64 +17,106 @@
         <p>वाणी · Every notice, in every voice</p>
       </div>
     </div>
-    <span id="mode" class="pill">checking…</span>
+    <div class="top-right">
+      <span id="mode" class="pill">checking…</span>
+      <div id="userbox" class="userbox" hidden>
+        <span id="uname" class="uname"></span>
+        <button id="logout" class="ghost" type="button">Log out</button>
+      </div>
+    </div>
   </header>
 
-  <main class="grid">
-    <!-- Step 3 + 4: notice input and language selection -->
-    <section class="card" aria-labelledby="admin-h">
-      <h2 id="admin-h"><span class="step">1</span> Admin · Post a notice</h2>
-      <label for="notice">Announcement (English)</label>
-      <textarea id="notice" rows="7" maxlength="900" placeholder="Type or paste the community notice…"></textarea>
-      <div class="row between">
-        <button class="ghost" id="sample" type="button">Use sample notice</button>
-        <span class="count"><span id="cnt">0</span>/900</span>
+  <!-- Login / Sign up (shown when nobody is logged in) -->
+  <section id="auth" class="auth" hidden aria-labelledby="auth-h">
+    <div class="auth-card">
+      <h2 id="auth-h">Welcome to Vani-Board</h2>
+      <p class="auth-sub">Log in to post notices, keep your history and save your preferred language.</p>
+      <div class="tabs" role="tablist">
+        <button id="tabLogin" class="tab on" type="button" role="tab" aria-selected="true">Log in</button>
+        <button id="tabSignup" class="tab" type="button" role="tab" aria-selected="false">Sign up</button>
       </div>
-
-      <label for="lang">Resident language</label>
-      <div class="chips" id="chips" role="radiogroup" aria-label="Language"></div>
-
-      <button class="primary" id="go" type="button">
-        <span class="spin" hidden></span>
-        <span id="goTxt">Broadcast to Vani-Board</span>
-      </button>
-      <p id="err" class="err" role="alert" hidden></p>
-    </section>
-
-    <!-- Step 5 + 6 + 7: translated notice and audio -->
-    <section class="board" aria-labelledby="board-h" aria-live="polite">
-      <div class="board-head">
-        <h2 id="board-h">📢 Community Board</h2>
-        <span id="langTag" class="pill dark" hidden></span>
-      </div>
-      <div id="empty" class="empty">
-        <div class="wave big" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
-        <p>Posted notices appear here, in your language, with a voice to read them out.</p>
-      </div>
-      <article id="out" hidden>
-        <p class="orig-label">Original</p>
-        <p id="orig" class="orig"></p>
-        <hr>
-        <p class="orig-label" id="trLabel">Translated</p>
-        <p id="trans" class="trans"></p>
-        <div class="player">
-          <button id="play" class="play" type="button" aria-label="Play announcement">▶</button>
-          <div class="wave" id="wave" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
-          <span id="pstate">Ready</span>
+      <form id="authForm" novalidate>
+        <div id="nameRow" hidden>
+          <label for="aname">Your name</label>
+          <input id="aname" type="text" maxlength="60" autocomplete="name" placeholder="e.g. Srividya">
         </div>
-      </article>
-    </section>
-  </main>
-
-  <!-- History: every broadcast notice is saved with its translation and voice -->
-  <section class="history" aria-labelledby="hist-h">
-    <div class="history-head">
-      <h2 id="hist-h">🕘 History</h2>
-      <span id="hcount" class="pill"></span>
+        <label for="aemail">Email</label>
+        <input id="aemail" type="email" autocomplete="email" placeholder="you@example.com">
+        <label for="apass">Password</label>
+        <input id="apass" type="password" autocomplete="current-password" placeholder="At least 8 characters">
+        <div id="langRow" hidden>
+          <label for="alang">Preferred language</label>
+          <select id="alang"></select>
+        </div>
+        <button class="primary" id="authBtn" type="submit">
+          <span class="spin" hidden></span>
+          <span id="authTxt">Log in</span>
+        </button>
+        <p id="autherr" class="err" role="alert" hidden></p>
+      </form>
     </div>
-    <p id="hempty" class="hempty">No notices yet. Broadcast one and it will be saved here with its voice.</p>
-    <ul id="hlist" class="hlist"></ul>
   </section>
+
+  <!-- The board (shown when logged in) -->
+  <div id="app" hidden>
+    <main class="grid">
+      <section class="card" aria-labelledby="admin-h">
+        <h2 id="admin-h"><span class="step">1</span> Admin · Post a notice</h2>
+        <label for="notice">Announcement (English)</label>
+        <textarea id="notice" rows="7" maxlength="900" placeholder="Type or paste the community notice…"></textarea>
+        <div class="row between">
+          <button class="ghost" id="sample" type="button">Use sample notice</button>
+          <span class="count"><span id="cnt">0</span>/900</span>
+        </div>
+
+        <label for="chips">Resident language</label>
+        <div class="chips" id="chips" role="radiogroup" aria-label="Language"></div>
+        <div class="def-row">
+          <span id="defInfo" class="def-info"></span>
+          <button class="ghost" id="setDef" type="button" hidden>Make this my default</button>
+        </div>
+
+        <button class="primary" id="go" type="button">
+          <span class="spin" hidden></span>
+          <span id="goTxt">Broadcast to Vani-Board</span>
+        </button>
+        <p id="err" class="err" role="alert" hidden></p>
+      </section>
+
+      <section class="board" aria-labelledby="board-h" aria-live="polite">
+        <div class="board-head">
+          <h2 id="board-h">📢 Community Board</h2>
+          <span id="langTag" class="pill dark" hidden></span>
+        </div>
+        <div id="empty" class="empty">
+          <div class="wave big" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+          <p>Posted notices appear here, in your language, with a voice to read them out.</p>
+        </div>
+        <article id="out" hidden>
+          <p class="orig-label">Original</p>
+          <p id="orig" class="orig"></p>
+          <hr>
+          <p class="orig-label" id="trLabel">Translated</p>
+          <p id="trans" class="trans"></p>
+          <div class="player">
+            <button id="play" class="play" type="button" aria-label="Play announcement">▶</button>
+            <div class="wave" id="wave" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+            <span id="pstate">Ready</span>
+          </div>
+        </article>
+      </section>
+    </main>
+
+    <!-- History: every broadcast notice is saved with its translation and voice -->
+    <section class="history" aria-labelledby="hist-h">
+      <div class="history-head">
+        <h2 id="hist-h">🕘 History</h2>
+        <span id="hcount" class="pill"></span>
+      </div>
+      <p id="hempty" class="hempty">No notices yet. Broadcast one and it will be saved here with its voice.</p>
+      <ul id="hlist" class="hlist"></ul>
+    </section>
+  </div>
 
   <footer>
     <span>Next: WhatsApp voice notes · IoT community loudspeakers</span>
