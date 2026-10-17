@@ -1,14 +1,12 @@
-// Vani-Board backend: static file server + thin proxy to Sarvam AI.
-// Zero dependencies (Node 18+). The API key stays on the server, never in the browser.
-require('dotenv').config();
+// Vani-Board backend: static file server + Sarvam AI proxy + notice history + Exotel phone route.
+// Needs Node 18+. No packages required (a small built-in loader reads .env).
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
 
-// Minimal .env loader
 try {
   fs.readFileSync(path.join(__dirname, '.env'), 'utf8').split('\n').forEach((l) => {
-    const m = l.match(/^\s*([A-Z_]+)\s*=\s*(.*)\s*$/);
+    const m = l.match(/^\s*([A-Z_]+)\s*=\s*(.*?)\s*$/);
     if (m && !process.env[m[1]]) process.env[m[1]] = m[2].replace(/^["']|["']$/g, '');
   });
 } catch (_) {}
@@ -17,8 +15,26 @@ const PORT = process.env.PORT || 3000;
 const KEY = process.env.SARVAM_API_KEY || '';
 const TRANSLATE_MODEL = process.env.SARVAM_TRANSLATE_MODEL || 'mayura:v1';
 const TTS_MODEL = process.env.SARVAM_TTS_MODEL || 'bulbul:v3';
-const SPEAKER = process.env.SARVAM_SPEAKER || 'ritu'; 
+const SPEAKER = process.env.SARVAM_SPEAKER || 'ritu';
 const SARVAM = 'https://api.sarvam.ai';
+
+// ---------- History storage (plain files, no database) ----------
+// data/history.json holds the list of notices, data/audio/<id>.wav holds each voice.
+const DATA_DIR = path.join(__dirname, 'data');
+const AUDIO_DIR = path.join(DATA_DIR, 'audio');
+const HISTORY_FILE = path.join(DATA_DIR, 'history.json');
+const MAX_HISTORY = 100; // oldest notices (and their audio) are removed beyond this
+fs.mkdirSync(AUDIO_DIR, { recursive: true });
+
+function loadHistory() {
+  try { return JSON.parse(fs.readFileSync(HISTORY_FILE, 'utf8')); } catch (_) { return []; }
+}
+function saveHistory(list) {
+  fs.writeFileSync(HISTORY_FILE, JSON.stringify(list, null, 2));
+}
+function removeAudio(id) {
+  try { fs.unlinkSync(path.join(AUDIO_DIR, `${id}.wav`)); } catch (_) {}
+}
 
 const MIME = { '.html': 'text/html', '.css': 'text/css', '.js': 'text/javascript', '.svg': 'image/svg+xml', '.wav': 'audio/wav' };
 
@@ -48,17 +64,90 @@ async function sarvam(endpoint, payload) {
 
 const server = http.createServer(async (req, res) => {
   try {
-    if (req.method === 'GET' && req.url === '/api/status') {
+    const url = req.url.split('?')[0];
+
+    if (req.method === 'GET' && url === '/api/status') {
       return send(res, 200, { live: !!KEY });
     }
 
-    // Existing Step 5: Web translation
-    if (req.method === 'POST' && req.url === '/api/translate') {
+    // ---------- NEW: notices with history ----------
+    // Create: translate (Sarvam) + speak (Sarvam) + save to history, return the saved notice.
+    if (req.method === 'POST' && url === '/api/notices') {
+      if (!KEY) return send(res, 503, { error: 'No SARVAM_API_KEY set' });
+      const { text, target } = await readBody(req);
+      if (!text || !target) return send(res, 400, { error: 'text and target required' });
+
+      let translated = text;
+      if (target !== 'en-IN') {
+        const t = await sarvam('/translate', {
+          input: text,
+          source_language_code: 'en-IN',
+          target_language_code: target,
+          model: TRANSLATE_MODEL,
+          mode: 'formal',
+          enable_preprocessing: true,
+        });
+        translated = t.translated_text;
+      }
+
+      const v = await sarvam('/text-to-speech', {
+        text: translated.slice(0, 2500),
+        language_code: target,
+        speaker: SPEAKER,
+        model: TTS_MODEL,
+        pace: 0.95,
+      });
+
+      const id = Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+      fs.writeFileSync(path.join(AUDIO_DIR, `${id}.wav`), Buffer.from(v.audios[0], 'base64'));
+
+      const entry = {
+        id,
+        createdAt: new Date().toISOString(),
+        language: target,
+        original: text,
+        translated,
+        audio: `/audio/${id}.wav`,
+      };
+      const list = loadHistory();
+      list.unshift(entry); // newest first
+      list.splice(MAX_HISTORY).forEach((old) => removeAudio(old.id));
+      saveHistory(list);
+      return send(res, 200, entry);
+    }
+
+    // List all saved notices (newest first)
+    if (req.method === 'GET' && url === '/api/notices') {
+      return send(res, 200, loadHistory());
+    }
+
+    // Delete one notice and its audio
+    if (req.method === 'DELETE' && url.startsWith('/api/notices/')) {
+      const id = url.slice('/api/notices/'.length);
+      if (!/^[a-z0-9]+$/.test(id)) return send(res, 400, { error: 'bad id' });
+      saveHistory(loadHistory().filter((n) => n.id !== id));
+      removeAudio(id);
+      return send(res, 200, { ok: true });
+    }
+
+    // Serve saved audio
+    if (req.method === 'GET' && url.startsWith('/audio/')) {
+      const name = url.slice('/audio/'.length);
+      if (!/^[a-z0-9]+\.wav$/.test(name)) { res.writeHead(400); return res.end(); }
+      return fs.readFile(path.join(AUDIO_DIR, name), (err, buf) => {
+        if (err) { res.writeHead(404); return res.end('Not found'); }
+        res.writeHead(200, { 'Content-Type': 'audio/wav', 'Content-Length': buf.length });
+        res.end(buf);
+      });
+    }
+
+    // ---------- Older endpoints (still available) ----------
+    if (req.method === 'POST' && url === '/api/translate') {
       if (!KEY) return send(res, 503, { error: 'No SARVAM_API_KEY set' });
       const { text, target } = await readBody(req);
       if (!text || !target) return send(res, 400, { error: 'text and target required' });
       if (target === 'en-IN') return send(res, 200, { translated: text });
-      
+
       const out = await sarvam('/translate', {
         input: text,
         source_language_code: 'en-IN',
@@ -70,12 +159,11 @@ const server = http.createServer(async (req, res) => {
       return send(res, 200, { translated: out.translated_text });
     }
 
-    // Existing Step 6: Web text to speech
-    if (req.method === 'POST' && req.url === '/api/tts') {
+    if (req.method === 'POST' && url === '/api/tts') {
       if (!KEY) return send(res, 503, { error: 'No SARVAM_API_KEY set' });
       const { text, target } = await readBody(req);
       if (!text || !target) return send(res, 400, { error: 'text and target required' });
-      
+
       const out = await sarvam('/text-to-speech', {
         text: text.slice(0, 2500),
         language_code: target,
@@ -83,24 +171,21 @@ const server = http.createServer(async (req, res) => {
         model: TTS_MODEL,
         pace: 0.95,
       });
-      return send(res, 200, { audio: out.audios && out.audios[0] }); 
+      return send(res, 200, { audio: out.audios && out.audios[0] });
     }
 
-    // NEW EXOTEL INBOUND CALL ROUTE
-    if (req.method === 'GET' && req.url.startsWith('/api/voice')) {
+    // Phone: Exotel calls this from a Passthru applet that sits BEFORE a Greeting applet.
+    // We return JSON {"greeting_url": "<wav url>"} and the Greeting applet plays that audio.
+    if (req.method === 'GET' && url === '/api/voice') {
       if (!KEY) return send(res, 503, { error: 'No SARVAM_API_KEY set' });
 
       console.log('Incoming call received from Exotel...');
-      const schemeNotice = "New government update: Free health checkup camps open this Monday at your local primary health centre.";
-      const userLang = "kn-IN"; // Kannada
+      const schemeNotice = 'New government update: Free health checkup camps open this Monday at your local primary health centre.';
+      const userLang = 'kn-IN'; // Kannada
 
-      // Ensure the public directory exists before writing to it
       const publicDir = path.join(__dirname, 'public');
-      if (!fs.existsSync(publicDir)) {
-        fs.mkdirSync(publicDir, { recursive: true });
-      }
+      fs.mkdirSync(publicDir, { recursive: true });
 
-      // 1. Translate the notice using Sarvam
       const translated = await sarvam('/translate', {
         input: schemeNotice,
         source_language_code: 'en-IN',
@@ -110,47 +195,41 @@ const server = http.createServer(async (req, res) => {
         enable_preprocessing: true,
       });
 
-      // 2. Generate voice audio using Sarvam TTS (Bulbul v3)
+      // Exotel needs 8 kHz mono 16-bit WAV, so ask Sarvam for 8000 Hz.
       const ttsOut = await sarvam('/text-to-speech', {
         text: translated.translated_text.slice(0, 2500),
         language_code: userLang,
-        speaker: SPEAKER, // Uses 'ritu' or your .env setting. All 37 Sarvam speakers support all 11 languages.
+        speaker: SPEAKER,
         model: TTS_MODEL,
-        pace: 0.95, // Keep near 1.0 for natural delivery
+        pace: 0.95,
+        speech_sample_rate: 8000,
       });
 
-      // 3. Save the base64 audio as a .wav file in the public folder
       const audioFileName = `call-${Date.now()}.wav`;
-      const audioFilePath = path.join(publicDir, audioFileName);
-      fs.writeFileSync(audioFilePath, Buffer.from(ttsOut.audios[0], 'base64'));
+      fs.writeFileSync(path.join(publicDir, audioFileName), Buffer.from(ttsOut.audios[0], 'base64'));
 
-      // 4. Build the public ngrok URL for the generated audio file
       const host = req.headers['x-forwarded-host'] || req.headers.host;
       const proto = req.headers['x-forwarded-proto'] || 'https';
       const audioUrl = `${proto}://${host}/${audioFileName}`;
-
       console.log(`Generated audio served at: ${audioUrl}`);
 
-      // 5. Exotel strictly requires a plain text response containing ONLY the audio URL
-      res.writeHead(200, { 'Content-Type': 'text/plain' });
-      return res.end(audioUrl);
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      return res.end(JSON.stringify({ greeting_url: audioUrl }));
     }
 
-    // Static files router (handles both your HTML and the generated .wav files)
-    const file = req.url === '/' ? '/index.html' : req.url.split('?')[0];
+    // Static files (HTML page, CSS, JS, phone .wav files)
+    const file = url === '/' ? '/index.html' : url;
     const full = path.join(__dirname, 'public', path.normalize(file));
     if (!full.startsWith(path.join(__dirname, 'public'))) { res.writeHead(403); return res.end(); }
-    
+
     fs.readFile(full, (err, buf) => {
       if (err) { res.writeHead(404); return res.end('Not found'); }
       res.writeHead(200, { 'Content-Type': MIME[path.extname(full)] || 'application/octet-stream' });
       res.end(buf);
     });
-
   } catch (e) {
     console.error('Server error:', e.message);
-    res.writeHead(502, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify({ error: e.message }));
+    send(res, 502, { error: e.message });
   }
 });
 

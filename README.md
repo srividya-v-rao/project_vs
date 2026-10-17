@@ -2,8 +2,6 @@
 
 Multilingual, voice-enabled community notice board. An admin posts an English notice → **Sarvam AI** translates it into a resident's language → **Sarvam AI** text-to-speech turns it into audio → the board shows the text and plays the voice.
 
-Many residents can't read English notices, or can't read at all. Vani-Board makes every announcement readable and listenable in the resident's own language.
-
 ```
 Browser (public/)  →  server.js (keeps API key private)  →  Sarvam /translate  →  Sarvam /text-to-speech
 ```
@@ -29,6 +27,10 @@ Open http://localhost:3000, tap **Use sample notice**, pick a language and press
 
 If the page says "Sarvam API key missing", check that `.env` is in the project folder, has your key, and that you restarted the server after editing it.
 
+## History
+
+Every broadcast notice is saved with its original text, its translation and its voice. The **History** section under the board lists them newest first. Each one can be played again, shown on the board, or deleted. History is kept in the `data/` folder (`history.json` plus one `.wav` per notice), so it survives restarts. The latest 100 notices are kept, and `data/` is not uploaded to GitHub.
+
 ## Which Sarvam models are used
 
 | Job | Endpoint | Model |
@@ -44,9 +46,9 @@ Languages: Hindi, Telugu, Tamil, Kannada, Malayalam, Marathi, Bengali, Gujarati,
 
 | File | Role |
 |---|---|
-| `server.js` | Serves the page and proxies `/api/translate` and `/api/tts` to Sarvam, so the key never reaches the browser |
-| `public/index.html` | Page, notice box, language chips |
-| `public/app.js` | Flow: translate → text-to-speech → play |
+| `server.js` | Serves the page, calls Sarvam for translation and voice (the key never reaches the browser), and stores the history |
+| `public/index.html` | Page, notice box, language chips, history section |
+| `public/app.js` | Flow: translate → text-to-speech → play, plus the history list |
 | `public/style.css` | Look and feel |
 | `env.example` | Template for your `.env` file |
 
@@ -58,9 +60,17 @@ Languages: Hindi, Telugu, Tamil, Kannada, Malayalam, Marathi, Bengali, Gujarati,
 2. In Exotel, build a call flow: **Passthru** (pointing at `https://YOUR-TUNNEL/api/voice`) followed by a **Greeting** applet that plays the dynamic greeting.
 3. The route must reply with JSON `{"greeting_url": "<wav url>"}` and generate the audio at 8 kHz, because Exotel only plays 8 kHz mono 16-bit WAV files.
 
-## Roadmap
+## 3-minute demo script
 
-- Send the same audio as WhatsApp voice notes
-- accessable in keypad phones
-- Schedule notices and keep a notice history
-- Remember each resident's preferred language
+1. **Problem (30s):** "Our apartment notices are in English on a wall. Many residents can't read them, or read a different language."
+2. **Post (30s):** Click *Use sample notice*, pick **Telugu**, press *Broadcast*.
+3. **Wow moment (60s):** The translated text appears and the voice starts automatically. Replay it. Switch to **Hindi**, then **Tamil**, and broadcast again.
+4. **Why it matters (30s):** "It reads for people who can't read, and speaks for people who can't read the language."
+5. **Roadmap (30s):** The same audio goes to WhatsApp voice notes, phone calls and IoT loudspeakers in the lobby. Next: a scheduler, notice history and per-resident language preferences.
+
+## Demo-day checklist
+
+- Test with your real key on the venue Wi-Fi beforehand and keep a phone hotspot ready.
+- Pre-run one notice and keep that tab open, so you can replay its audio if the network fails.
+- Turn the volume up and click the page once before presenting, because browsers can block autoplay.
+- Never commit `.env`. It is already listed in `.gitignore`.

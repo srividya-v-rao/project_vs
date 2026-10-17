@@ -45,7 +45,7 @@
     <section class="board" aria-labelledby="board-h" aria-live="polite">
       <div class="board-head">
         <h2 id="board-h">📢 Community Board</h2>
-        <span id="langTag" class="pill dark"></span>
+        <span id="langTag" class="pill dark" hidden></span>
       </div>
       <div id="empty" class="empty">
         <div class="wave big" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
@@ -65,6 +65,16 @@
       </article>
     </section>
   </main>
+
+  <!-- History: every broadcast notice is saved with its translation and voice -->
+  <section class="history" aria-labelledby="hist-h">
+    <div class="history-head">
+      <h2 id="hist-h">🕘 History</h2>
+      <span id="hcount" class="pill"></span>
+    </div>
+    <p id="hempty" class="hempty">No notices yet. Broadcast one and it will be saved here with its voice.</p>
+    <ul id="hlist" class="hlist"></ul>
+  </section>
 
   <footer>
     <span>Next: WhatsApp voice notes · IoT community loudspeakers</span>
